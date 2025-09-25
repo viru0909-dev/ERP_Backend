@@ -1,0 +1,47 @@
+### Register a new Super Staff User
+# @name registerSuperStaff
+POST http://localhost:8080/api/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Virendra Admin",
+  "email": "virendra.admin@sih.com",
+  "password": "superSecretPassword123",
+  "contactNumber": "9876543210",
+  "role": "ROLE_SUPER_STAFF"
+}
+
+###
+
+
+### Login as the registered user
+# @name loginUser
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "virendra.admin@sih.com",
+  "password": "superSecretPassword123"
+}
+
+###
+
+
+### STEP 1: LOGIN AS A STAFF MEMBER TO GET A FRESH TOKEN
+# @name loginStaff
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "staff.one@sih.com",
+  "password": "123456"
+}
+
+### Store the token in a variable
+@staffToken = {{loginStaff.response.body.token}}
+
+### ==========================================================
+### STEP 2: TEST THE ENDPOINT THAT IS FAILING
+### ==========================================================
+GET http://localhost:8080/api/master/classes
+Authorization: Bearer {{staffToken}}
