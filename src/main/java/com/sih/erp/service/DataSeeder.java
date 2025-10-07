@@ -1,17 +1,22 @@
 package com.sih.erp.service;
 
+import com.sih.erp.entity.Role;
 import com.sih.erp.entity.SchoolClass;
 import com.sih.erp.entity.Subject;
+import com.sih.erp.entity.User; // <-- ADD THIS IMPORT
 import com.sih.erp.repository.SchoolClassRepository;
 import com.sih.erp.repository.SubjectRepository;
+import com.sih.erp.repository.UserRepository; // <-- ADD THIS IMPORT
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder; // <-- ADD THIS IMPORT
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID; // <-- ADD THIS IMPORT
 
 @Component
 public class DataSeeder implements CommandLineRunner {
@@ -24,13 +29,43 @@ public class DataSeeder implements CommandLineRunner {
     @Autowired
     private SchoolClassRepository schoolClassRepository;
 
+    // --- NEW DEPENDENCIES TO ADD ---
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+    // -----------------------------
+
     @Override
     public void run(String... args) throws Exception {
         logger.info("DataSeeder running...");
         seedSubjects();
         seedSchoolClasses();
+        seedSuperStaffUser(); // <-- ADD CALL TO THE NEW METHOD
         logger.info("DataSeeder finished.");
     }
+
+    // --- NEW METHOD TO ADD ---
+    private void seedSuperStaffUser() {
+        if (userRepository.findByRole(Role.ROLE_SUPER_STAFF).isEmpty()) {
+            logger.info("No SUPER_STAFF found. Creating initial admin user...");
+
+            User admin = new User();
+            admin.setUserId(UUID.randomUUID());
+            admin.setFullName("Virendra Admin");
+            admin.setEmail("virendra.admin@sih.com");
+            admin.setPassword(passwordEncoder.encode("superSecretPassword123")); // Securely hashed
+            admin.setContactNumber("1234567890");
+            admin.setRole(Role.ROLE_SUPER_STAFF);
+
+            userRepository.save(admin);
+            logger.info("Initial SUPER_STAFF user created successfully.");
+        } else {
+            logger.info("SUPER_STAFF user already exists. Skipping seed.");
+        }
+    }
+    // -------------------------
 
     private void seedSubjects() {
         if (subjectRepository.count() == 0) {

@@ -8,6 +8,7 @@ import com.sih.erp.dto.RiskProfileDto;
 import com.sih.erp.entity.*;
 import com.sih.erp.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -27,7 +28,8 @@ public class RiskAnalysisService {
     @Autowired private AttendanceRecordRepository attendanceRepository;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final String pythonServiceUrl = "http://127.0.0.1:5002";
+    @Value("${risk.analytics.service.url}")
+    private String pythonServiceUrl;
 
     public List<RiskProfileDto> getRiskProfilesForMentor(String mentorEmail) {
         System.out.println("LOG: Fetching students for mentor: " + mentorEmail);

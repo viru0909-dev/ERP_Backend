@@ -30,7 +30,6 @@ public class SecurityConfig {
 
     @Autowired private JwtAuthenticationFilter jwtAuthenticationFilter;
     @Autowired private UserDetailsServiceImpl userDetailsService;
-// In src/main/java/com/sih/erp/config/SecurityConfig.java
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -38,32 +37,23 @@ public class SecurityConfig {
                 .cors(withDefaults())
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // --- PUBLIC Endpoints (No login required) ---
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**", "/api/public/**", "/api/master/**", "/api/files/**").permitAll()
 
-                        // --- STUDENT Endpoints ---
                         .requestMatchers("/api/student/**").hasAuthority("ROLE_STUDENT")
-
-                        // --- TEACHER Endpoints ---
                         .requestMatchers("/api/teacher/**").hasAuthority("ROLE_TEACHER")
 
-                        // --- COURSE Endpoints (Shared between Student and Teacher) ---
-                        .requestMatchers(HttpMethod.GET, "/api/courses/**").hasAnyAuthority("ROLE_TEACHER", "ROLE_STUDENT")
+                        .requestMatchers(HttpMethod.GET, "/api/courses/**").hasAnyAuthority("ROLE_TEACHER","ROLE_STUDENT")
                         .requestMatchers(HttpMethod.POST, "/api/courses/**").hasAuthority("ROLE_TEACHER")
                         .requestMatchers(HttpMethod.DELETE, "/api/courses/**").hasAuthority("ROLE_TEACHER")
 
-                        // --- STAFF Endpoints ---
                         .requestMatchers("/api/staff/admissions/**").hasAuthority("ROLE_ADMISSIONS_STAFF")
                         .requestMatchers("/api/hostel-staff/**").hasAuthority("ROLE_HOSTEL_ADMIN")
-                        .requestMatchers("/api/staff/**").hasAnyAuthority("ROLE_ACADEMIC_ADMIN", "ROLE_SUPER_STAFF")
+                        .requestMatchers("/api/staff/**").hasAnyAuthority("ROLE_ACADEMIC_ADMIN","ROLE_SUPER_STAFF")
 
-                        // --- SUPER_STAFF ONLY Endpoints ---
                         .requestMatchers("/api/admin/**").hasAuthority("ROLE_SUPER_STAFF")
+                        .requestMatchers("/api/users/me/**","/api/timetable/class/**").authenticated()
 
-                        // --- GENERAL Authenticated Endpoints (Any logged-in user) ---
-                        .requestMatchers("/api/users/me/**", "/api/timetable/class/**").authenticated()
-
-                        // --- All other requests must be authenticated ---
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -84,10 +74,15 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:5173",
+                "http://localhost:3000",
+                "https://erp-frontend-dda9.onrender.com"
+        ));
+        configuration.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization","Content-Type"));
         configuration.setAllowCredentials(true);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
