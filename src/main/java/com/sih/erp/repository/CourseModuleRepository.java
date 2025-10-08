@@ -13,4 +13,6 @@ public interface CourseModuleRepository extends JpaRepository<CourseModule, UUID
     List<CourseModule> findBySchoolClass_ClassIdAndSubject_SubjectId(UUID classId, UUID subjectId);
 
     List<CourseModule> findByCreatedBy(User user);
+    List<CourseModule> findBySchoolClass_ClassId(UUID classId);
+
 }

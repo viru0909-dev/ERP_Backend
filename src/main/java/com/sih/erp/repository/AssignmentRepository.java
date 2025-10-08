@@ -13,4 +13,6 @@ public interface AssignmentRepository extends JpaRepository<Assignment, UUID> {
     List<Assignment> findBySchoolClass_ClassIdAndSubject_SubjectId(UUID classId, UUID subjectId);
 
     List<Assignment> findByCreatedBy(User user);
+    List<Assignment> findBySchoolClass_ClassId(UUID classId);
+
 }

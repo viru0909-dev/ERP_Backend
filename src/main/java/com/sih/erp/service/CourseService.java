@@ -4,15 +4,9 @@ import com.sih.erp.dto.*;
 import com.sih.erp.entity.*;
 import com.sih.erp.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import com.sih.erp.entity.Course; // <-- ADD THIS LINE
-
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
@@ -34,6 +28,8 @@ public class CourseService {
     @Autowired private TimetableSlotRepository timetableSlotRepository;
     @Autowired private CourseRepository courseRepository;
 
+    // --- Module Methods ---
+
     @Transactional
     public CourseModule createModule(UUID classId, UUID subjectId, String title, String description, MultipartFile file, String teacherEmail) {
         User teacher = userRepository.findByEmail(teacherEmail).orElseThrow(() -> new UsernameNotFoundException("Teacher not found"));
@@ -47,7 +43,6 @@ public class CourseService {
         newModule.setSubject(subject);
         newModule.setCreatedBy(teacher);
 
-        // If a file is present, store it and set the URL
         if (file != null && !file.isEmpty()) {
             String fileUrl = fileStorageService.storeFile(file);
             newModule.setFileUrl(fileUrl);
@@ -55,10 +50,19 @@ public class CourseService {
 
         return moduleRepository.save(newModule);
     }
+
     @Transactional(readOnly = true)
     public List<CourseModuleDto> getModulesForCourse(UUID classId, UUID subjectId) {
-        return moduleRepository.findBySchoolClass_ClassIdAndSubject_SubjectId(classId, subjectId)
-                .stream()
+        List<CourseModule> modules;
+        if (subjectId == null) {
+            // Find all modules for a class, regardless of subject
+            modules = moduleRepository.findBySchoolClass_ClassId(classId);
+        } else {
+            // Find modules for a specific subject within a class
+            modules = moduleRepository.findBySchoolClass_ClassIdAndSubject_SubjectId(classId, subjectId);
+        }
+
+        return modules.stream()
                 .map(module -> new CourseModuleDto(
                         module.getModuleId(),
                         module.getTitle(),
@@ -69,6 +73,21 @@ public class CourseService {
                 ))
                 .collect(Collectors.toList());
     }
+
+    @Transactional
+    public void deleteModule(UUID moduleId, String teacherEmail) {
+        User teacher = userRepository.findByEmail(teacherEmail)
+                .orElseThrow(() -> new UsernameNotFoundException("Teacher not found"));
+        CourseModule module = moduleRepository.findById(moduleId)
+                .orElseThrow(() -> new RuntimeException("Module not found"));
+
+        if (!module.getCreatedBy().equals(teacher)) {
+            throw new SecurityException("You are not authorized to delete this module.");
+        }
+        moduleRepository.delete(module);
+    }
+
+    // --- Assignment Methods ---
 
     @Transactional
     public Assignment createAssignment(UUID classId, UUID subjectId, CreateAssignmentRequest request, String teacherEmail) {
@@ -89,8 +108,16 @@ public class CourseService {
 
     @Transactional(readOnly = true)
     public List<AssignmentDto> getAssignmentsForCourse(UUID classId, UUID subjectId) {
-        return assignmentRepository.findBySchoolClass_ClassIdAndSubject_SubjectId(classId, subjectId)
-                .stream()
+        List<Assignment> assignments;
+        if (subjectId == null) {
+            // Find all assignments for a class, regardless of subject
+            assignments = assignmentRepository.findBySchoolClass_ClassId(classId);
+        } else {
+            // Find assignments for a specific subject within a class
+            assignments = assignmentRepository.findBySchoolClass_ClassIdAndSubject_SubjectId(classId, subjectId);
+        }
+
+        return assignments.stream()
                 .map(assignment -> new AssignmentDto(
                         assignment.getAssignmentId(),
                         assignment.getTitle(),
@@ -101,24 +128,8 @@ public class CourseService {
                 ))
                 .collect(Collectors.toList());
     }
-    @Transactional
-    public void deleteModule(UUID moduleId, String teacherEmail) {
-        User teacher = userRepository.findByEmail(teacherEmail)
-                .orElseThrow(() -> new UsernameNotFoundException("Teacher not found"));
-        CourseModule module = moduleRepository.findById(moduleId)
-                .orElseThrow(() -> new RuntimeException("Module not found"));
 
-        // SECURITY CHECK: Ensure the teacher deleting the module is the one who created it.
-        if (!module.getCreatedBy().equals(teacher)) {
-            throw new SecurityException("You are not authorized to delete this module.");
-        }
-
-        moduleRepository.delete(module);
-    }
-
-    // ... inside the CourseService class
-
-    // In src/main/java/com/sih/erp/service/CourseService.java
+    // --- Student-Facing Method (BUG FIX) ---
 
     @Transactional(readOnly = true)
     public List<StudentCourseDto> findCoursesByStudent(String studentEmail) {
@@ -126,26 +137,39 @@ public class CourseService {
                 .orElseThrow(() -> new UsernameNotFoundException("Student not found with email: " + studentEmail));
 
         if (student.getRole() != Role.ROLE_STUDENT || student.getSchoolClass() == null) {
-            return List.of(); // Return empty if not a student or not in a class
+            return List.of();
         }
 
         SchoolClass schoolClass = student.getSchoolClass();
+        UUID classId = schoolClass.getClassId();
 
-        // NEW LOGIC: Directly query the Course table for this class's curriculum
-        Set<SubjectDto> subjects = courseRepository.findBySchoolClass_ClassId(schoolClass.getClassId())
+        // 1. Fetch the subjects for the class
+        Set<SubjectDto> subjects = courseRepository.findBySchoolClass_ClassId(classId)
                 .stream()
                 .map(course -> new SubjectDto(course.getSubject().getSubjectId(), course.getSubject().getName()))
                 .collect(Collectors.toSet());
 
+        // 2. Fetch all modules for the student's entire class
+        List<CourseModuleDto> modules = getModulesForCourse(classId, null);
+
+        // 3. Fetch all assignments for the student's entire class
+        List<AssignmentDto> assignments = getAssignmentsForCourse(classId, null);
+
+        // 4. Combine everything into the DTO
         StudentCourseDto courseDto = new StudentCourseDto(
-                schoolClass.getClassId(),
+                classId,
                 schoolClass.getGradeLevel(),
                 schoolClass.getSection(),
-                subjects
+                subjects,
+                modules,
+                assignments
         );
 
         return List.of(courseDto);
     }
+
+    // --- Other Management Methods ---
+
     @Transactional(readOnly = true)
     public SchoolClassDetailsDto findClassDetailsById(UUID classId) {
         SchoolClass schoolClass = schoolClassRepository.findById(classId)
@@ -165,10 +189,6 @@ public class CourseService {
         );
     }
 
-    // ... inside CourseService.java
-
-// --- ADD THESE NEW METHODS FOR SUBJECT MANAGEMENT ---
-
     @Transactional
     public Subject createSubject(String subjectName) {
         Subject newSubject = new Subject();
@@ -186,13 +206,8 @@ public class CourseService {
 
     @Transactional
     public void deleteSubject(UUID subjectId) {
-        // We should add checks here to prevent deleting a subject that's in use
         subjectRepository.deleteById(subjectId);
     }
-
-    // ... inside CourseService.java
-
-// --- ADD THESE NEW METHODS FOR SCHOOL CLASS MANAGEMENT ---
 
     @Transactional
     public SchoolClass createSchoolClass(SchoolClassDto classDto) {
@@ -215,17 +230,11 @@ public class CourseService {
 
     @Transactional
     public void deleteSchoolClass(UUID classId) {
-        // Basic check to prevent deleting a class that has students.
-        // A more robust check would also look at timetable slots, teacher assignments, etc.
         if (userRepository.countBySchoolClass_ClassId(classId) > 0) {
             throw new IllegalStateException("Cannot delete a class that has students enrolled.");
         }
         schoolClassRepository.deleteById(classId);
     }
-
-    // ... inside CourseService.java
-
-// --- ADD THESE NEW METHODS FOR CLASSROOM MANAGEMENT ---
 
     @Transactional
     public Classroom createClassroom(ClassroomDto classroomDto) {
@@ -246,21 +255,16 @@ public class CourseService {
 
     @Transactional
     public void deleteClassroom(UUID classroomId) {
-        // Safety check: Prevent deleting a classroom that is scheduled in the timetable
         if (timetableSlotRepository.existsByClassroom_ClassroomId(classroomId)) {
             throw new IllegalStateException("Cannot delete a classroom that is currently in use in the timetable.");
         }
         classroomRepository.deleteById(classroomId);
     }
 
-    // In CourseService.java
     @Transactional
     public void designClass(UUID classId, List<CourseDesignDto> courseDesigns) {
         SchoolClass schoolClass = schoolClassRepository.findById(classId)
                 .orElseThrow(() -> new RuntimeException("Class not found"));
-
-        // Optional: Clear existing design for this class before applying new one
-        // courseRepository.deleteBySchoolClass(schoolClass);
 
         List<Course> courses = new ArrayList<>();
         for (CourseDesignDto design : courseDesigns) {
@@ -275,6 +279,7 @@ public class CourseService {
         }
         courseRepository.saveAll(courses);
     }
+
     @Transactional(readOnly = true)
     public List<CourseDto> getCourseDesignForClass(UUID classId) {
         return courseRepository.findBySchoolClass_ClassId(classId).stream()
@@ -287,6 +292,4 @@ public class CourseService {
                 ))
                 .collect(Collectors.toList());
     }
-
 }
-

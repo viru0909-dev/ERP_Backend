@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -11,11 +12,12 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class StudentCourseDto {
-    // Information about the class
     private UUID classId;
     private String gradeLevel;
     private String section;
-
-    // All subjects taught in this class
     private Set<SubjectDto> subjects;
+
+    // --- ADD THESE TWO NEW FIELDS ---
+    private List<CourseModuleDto> modules;
+    private List<AssignmentDto> assignments;
 }
