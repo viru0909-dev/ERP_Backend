@@ -43,6 +43,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/student/**").hasAuthority("ROLE_STUDENT")
                         .requestMatchers("/api/teacher/**").hasAuthority("ROLE_TEACHER")
 
+                        // --- THIS IS THE NEW LINE YOU NEED TO ADD ---
+                        .requestMatchers("/api/gamification/**").hasAnyAuthority("ROLE_TEACHER", "ROLE_STUDENT")
+                        .requestMatchers(HttpMethod.DELETE, "/api/gamification/**").hasAuthority("ROLE_TEACHER")
+
+
                         .requestMatchers(HttpMethod.GET, "/api/courses/**").hasAnyAuthority("ROLE_TEACHER","ROLE_STUDENT")
                         .requestMatchers(HttpMethod.POST, "/api/courses/**").hasAuthority("ROLE_TEACHER")
                         .requestMatchers(HttpMethod.DELETE, "/api/courses/**").hasAuthority("ROLE_TEACHER")

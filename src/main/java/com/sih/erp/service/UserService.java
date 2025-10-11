@@ -27,6 +27,8 @@ public class UserService {
     @Autowired private CourseModuleRepository courseModuleRepository;
     @Autowired private AssignmentRepository assignmentRepository;
     @Autowired private AnnouncementRepository announcementRepository;
+    @Autowired private XPTransactionRepository xpTransactionRepository;
+
 
     @Autowired
     public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, SubjectRepository subjectRepository, SchoolClassRepository schoolClassRepository) {
@@ -137,6 +139,11 @@ public class UserService {
         // ADD THIS LOGIC
         if (user.getMentor() != null) {
             dto.setMentorName(user.getMentor().getFullName());
+        }
+
+        if (user.getRole() == Role.ROLE_STUDENT) {
+            Integer totalXp = xpTransactionRepository.findTotalXpByUserId(user.getUserId());
+            dto.setTotalXp(totalXp != null ? totalXp : 0);
         }
 
         return dto;

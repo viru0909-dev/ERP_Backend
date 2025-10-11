@@ -20,4 +20,6 @@ public class StudentCourseDto {
     // --- ADD THESE TWO NEW FIELDS ---
     private List<CourseModuleDto> modules;
     private List<AssignmentDto> assignments;
+    private List<QuizListDto> quizzes;
+
 }

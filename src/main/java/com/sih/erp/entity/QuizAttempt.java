@@ -31,4 +31,7 @@ public class QuizAttempt {
 
     @CreationTimestamp
     private LocalDateTime completedAt;
+
+    @Column(nullable = false)
+    private int attemptNumber;
 }

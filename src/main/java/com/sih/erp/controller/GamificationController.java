@@ -1,7 +1,6 @@
 package com.sih.erp.controller;
 
-import com.sih.erp.dto.CreateQuizRequestDto;
-import com.sih.erp.dto.QuizDto;
+import com.sih.erp.dto.*;
 import com.sih.erp.entity.Quiz;
 import com.sih.erp.service.GamificationService;
 import jakarta.validation.Valid;
@@ -9,14 +8,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import com.sih.erp.dto.QuizAttemptResultDto;
-import com.sih.erp.dto.SubmitQuizRequestDto;
+import org.springframework.web.bind.annotation.*;
 import com.sih.erp.entity.QuizAttempt;
-import org.springframework.web.bind.annotation.PathVariable;
+
+import java.util.List;
 import java.util.UUID;
 
 import java.security.Principal;
@@ -69,5 +64,42 @@ public class GamificationController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    // Add this new method
+    @GetMapping("/quizzes/{quizId}/take")
+    @PreAuthorize("hasAuthority('ROLE_STUDENT')")
+    public ResponseEntity<QuizForStudentDto> getQuizForStudent(@PathVariable UUID quizId) {
+        QuizForStudentDto quizDto = gamificationService.getQuizForStudent(quizId);
+        return ResponseEntity.ok(quizDto);
+    }
+
+    // Add these new methods to your GamificationController class
+
+    @GetMapping("/quizzes/teacher")
+    @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+    public ResponseEntity<List<QuizDto>> getTeacherQuizzes(Principal principal) {
+        List<QuizDto> quizzes = gamificationService.getQuizzesByTeacher(principal);
+        return ResponseEntity.ok(quizzes);
+    }
+
+    @DeleteMapping("/quizzes/{quizId}")
+    @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+    public ResponseEntity<?> deleteQuiz(@PathVariable UUID quizId, Principal principal) {
+        try {
+            gamificationService.deleteQuiz(quizId, principal);
+            return ResponseEntity.ok().body("Quiz deleted successfully.");
+        } catch (Exception e) {
+            // This will catch both "Quiz not found" and the SecurityException
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        }
+    }
+
+    // Add this new method
+    @GetMapping("/quizzes/{quizId}/results")
+    @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+    public ResponseEntity<List<QuizAttemptDto>> getQuizResults(@PathVariable UUID quizId) {
+        List<QuizAttemptDto> results = gamificationService.getResultsForQuiz(quizId);
+        return ResponseEntity.ok(results);
     }
 }

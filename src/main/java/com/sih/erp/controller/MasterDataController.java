@@ -32,6 +32,8 @@ public class MasterDataController {
     @Autowired
     private CourseService courseService;
 
+
+
     @Autowired
     private SubjectRepository subjectRepository;
 
@@ -46,9 +48,9 @@ public class MasterDataController {
 
     @GetMapping("/subjects")
     public ResponseEntity<List<Subject>> getAllSubjects() {
-        return ResponseEntity.ok(subjectRepository.findAll());
+        List<Subject> subjects = subjectRepository.findAll();
+        return ResponseEntity.ok(subjects);
     }
-
     @GetMapping("/classes")
     public ResponseEntity<List<SchoolClass>> getAllClasses() {
         return ResponseEntity.ok(schoolClassRepository.findAll());
@@ -94,9 +96,6 @@ public class MasterDataController {
         return ResponseEntity.ok().build();
     }
 
-    // ... inside MasterDataController.java
-
-// --- ADD THESE NEW SECURE ENDPOINTS ---
 
     @PostMapping("/classes")
     @PreAuthorize("hasAuthority('ROLE_ACADEMIC_ADMIN')")

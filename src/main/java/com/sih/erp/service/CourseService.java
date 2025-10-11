@@ -8,6 +8,13 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import com.sih.erp.repository.QuizRepository;
+import com.sih.erp.dto.QuizListDto;
+import com.sih.erp.dto.CourseDetailsDto;
+import com.sih.erp.dto.QuizDto;
+import com.sih.erp.repository.QuizRepository;
+import java.security.Principal;
+
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +34,9 @@ public class CourseService {
     @Autowired private ClassroomRepository classroomRepository;
     @Autowired private TimetableSlotRepository timetableSlotRepository;
     @Autowired private CourseRepository courseRepository;
+    @Autowired private QuizRepository quizRepository;
+
+
 
     // --- Module Methods ---
 
@@ -131,6 +141,7 @@ public class CourseService {
 
     // --- Student-Facing Method (BUG FIX) ---
 
+    // Replace your existing findCoursesByStudent method with this one.
     @Transactional(readOnly = true)
     public List<StudentCourseDto> findCoursesByStudent(String studentEmail) {
         User student = userRepository.findByEmail(studentEmail)
@@ -141,33 +152,23 @@ public class CourseService {
         }
 
         SchoolClass schoolClass = student.getSchoolClass();
-        UUID classId = schoolClass.getClassId();
 
-        // 1. Fetch the subjects for the class
-        Set<SubjectDto> subjects = courseRepository.findBySchoolClass_ClassId(classId)
+        // Fetch ONLY the subjects for the student's class
+        Set<SubjectDto> subjects = courseRepository.findBySchoolClass_ClassId(schoolClass.getClassId())
                 .stream()
                 .map(course -> new SubjectDto(course.getSubject().getSubjectId(), course.getSubject().getName()))
                 .collect(Collectors.toSet());
 
-        // 2. Fetch all modules for the student's entire class
-        List<CourseModuleDto> modules = getModulesForCourse(classId, null);
-
-        // 3. Fetch all assignments for the student's entire class
-        List<AssignmentDto> assignments = getAssignmentsForCourse(classId, null);
-
-        // 4. Combine everything into the DTO
-        StudentCourseDto courseDto = new StudentCourseDto(
-                classId,
-                schoolClass.getGradeLevel(),
-                schoolClass.getSection(),
-                subjects,
-                modules,
-                assignments
-        );
+        // Create the DTO with only the data needed for this page
+        StudentCourseDto courseDto = new StudentCourseDto();
+        courseDto.setClassId(schoolClass.getClassId());
+        courseDto.setGradeLevel(schoolClass.getGradeLevel());
+        courseDto.setSection(schoolClass.getSection());
+        courseDto.setSubjects(subjects);
+        // Note: We no longer set modules, assignments, or quizzes here
 
         return List.of(courseDto);
     }
-
     // --- Other Management Methods ---
 
     @Transactional(readOnly = true)
@@ -292,4 +293,57 @@ public class CourseService {
                 ))
                 .collect(Collectors.toList());
     }
+    @Transactional(readOnly = true)
+    public CourseDetailsDto getCourseDetails(UUID classId, UUID subjectId, Principal principal) {
+        User user = userRepository.findByEmail(principal.getName())
+                .orElseThrow(() -> new RuntimeException("User not found: " + principal.getName()));
+
+
+        // Fetch Modules
+        List<CourseModuleDto> modules = moduleRepository.findBySchoolClass_ClassIdAndSubject_SubjectId(classId, subjectId)
+                .stream()
+                .map(module -> new CourseModuleDto(
+                        module.getModuleId(),
+                        module.getTitle(),
+                        module.getDescription(),
+                        module.getFileUrl(),
+                        module.getCreatedAt(),
+                        module.getCreatedBy().getFullName()
+                ))
+                .collect(Collectors.toList());
+
+        // Fetch Assignments
+        List<AssignmentDto> assignments = assignmentRepository.findBySchoolClass_ClassIdAndSubject_SubjectId(classId, subjectId)
+                .stream()
+                .map(assignment -> new AssignmentDto(
+                        assignment.getAssignmentId(),
+                        assignment.getTitle(),
+                        assignment.getInstructions(),
+                        assignment.getDueDate(),
+                        assignment.getAssignedAt(),
+                        assignment.getCreatedBy().getFullName()
+                ))
+                .collect(Collectors.toList());
+
+        // Fetch Quizzes created by this specific teacher for this subject
+        List<QuizDto> quizzes;
+        if (user.getRole() == Role.ROLE_TEACHER) {
+            // If the user is a teacher, find quizzes they created for this subject
+            quizzes = quizRepository.findBySubject_SubjectIdAndCreatedBy(subjectId, user)
+                    .stream()
+                    .map(QuizDto::new)
+                    .collect(Collectors.toList());
+        } else {
+            // If the user is a student, find all quizzes for this subject in their class
+            Subject subject = subjectRepository.findById(subjectId).orElseThrow();
+            quizzes = quizRepository.findBySubjectIn(List.of(subject))
+                    .stream()
+                    .map(QuizDto::new)
+                    .collect(Collectors.toList());
+        }
+
+        return new CourseDetailsDto(modules, assignments, quizzes);
+    }
+
+
 }

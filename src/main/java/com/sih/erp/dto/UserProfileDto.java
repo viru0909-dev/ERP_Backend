@@ -31,6 +31,9 @@ public class UserProfileDto {
     private boolean feePaid;
     private AcademicStatus academicStatus;
 
+    private Integer totalXp;
+
+
 
 
 }

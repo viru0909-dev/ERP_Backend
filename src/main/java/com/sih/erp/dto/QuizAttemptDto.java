@@ -7,24 +7,22 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Data
-public class QuizAttemptResultDto {
+public class QuizAttemptDto {
     private UUID attemptId;
-    private UUID quizId;
+    private String studentName;
     private int score;
     private int totalQuestions;
     private double percentage;
     private LocalDateTime completedAt;
-    private int xpEarned; // <-- ADD THIS NEW FIELD
+    private int attemptNumber;
 
-
-    public QuizAttemptResultDto(QuizAttempt attempt) {
+    public QuizAttemptDto(QuizAttempt attempt) {
         this.attemptId = attempt.getAttemptId();
-        this.quizId = attempt.getQuiz().getQuizId();
+        this.studentName = attempt.getStudent().getFullName();
         this.score = attempt.getScore();
         this.totalQuestions = attempt.getTotalQuestions();
-        this.percentage = (double) attempt.getScore() / attempt.getTotalQuestions() * 100;
+        this.percentage = Math.round((double) attempt.getScore() / attempt.getTotalQuestions() * 100);
         this.completedAt = attempt.getCompletedAt();
-        this.xpEarned = attempt.getScore() * 10; // <-- ADD THIS LINE (assumes 10 XP per correct answer)
-
+        this.attemptNumber = attempt.getAttemptNumber();
     }
 }
